@@ -20,6 +20,9 @@
 /*  (ERC) under the European Union’s Horizon 2020 research and innovation   */
 /*  programme (grant agreement No 789108).                                  */
 /*                                                                          */
+/*  This work was partially supported by Innovate UK Digital Security by    */
+/*  Design (DSbD) Technology Platform Prototype ("DSbD") 105694.            */
+/*                                                                          */
 /*  Redistribution and use in source and binary forms, with or without      */
 /*  modification, are permitted provided that the following conditions      */
 /*  are met:                                                                */
