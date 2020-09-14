@@ -238,6 +238,17 @@ function propIncOffset(c, offset) : (Capability, CapAddrBits) -> bool = {
   representable --> (newBase == origBase & newTop == origTop)
 }
 
+/* Modifying the low MW-3 bits of the address is always representable */
+
+$property
+function propSetLSBs(c, bits) : (Capability, bits(mantissa_width - 3)) -> bool = {
+  let addr' = [c.address with (mantissa_width - 4) .. 0 = bits];
+  let c' = {c with address = addr'};
+  let (origBase, origTop) = getCapBounds(c);
+  let (newBase, newTop) = getCapBounds(c');
+  (newBase == origBase & newTop == origTop)
+}
+
 /* TODO: Elaborate on the representable range, as in this earlier attempt: */
 /*
 $counterexample
