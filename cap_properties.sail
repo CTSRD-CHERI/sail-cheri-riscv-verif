@@ -249,6 +249,23 @@ function propSetLSBs(c, bits) : (Capability, bits(mantissa_width - 3)) -> bool =
   (newBase == origBase & newTop == origTop)
 }
 
+/* If the requested base is aligned w.r.t. the mask given by CRAM, and the
+ * requested length is rounded up via CRRL, then bounds setting is guaranteed
+ * to be exact. */
+
+$property
+function propRepresentableSetBoundsExact(c, len) : (Capability, CapAddrBits) -> bool = {
+  let repMask = getRepresentableAlignmentMask(len);
+  let repLen = getRepresentableLength(len);
+  let newTop : CapLenBits = EXTZ(c.address) + EXTZ(len);
+  let (exact, c') = setCapBounds(c, c.address, newTop);
+  let (newBase', newTop') = getCapBoundsBits(c');
+  let boundsExact = exact & (c.address == newBase') & (newTop == newTop');
+  let addressAligned = ((c.address & repMask) == c.address);
+  let lenPadded = (len == repLen);
+  (addressAligned & lenPadded) --> boundsExact
+}
+
 /* TODO: Elaborate on the representable range, as in this earlier attempt: */
 /*
 $counterexample
