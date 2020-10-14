@@ -133,7 +133,7 @@ function propSetBoundsEncodable(c, reqBase, reqTop) : (Capability, CapAddrBits, 
 /* Sealing with a valid object type preserves encodability */
 $property
 function propSealEncodable(c, otype) : (Capability, bits(otype_width)) -> bool =
-  let (_, c') = sealCap(c, otype) in
+  let c' = sealCap(c, otype) in
   let validType = (unsigned(otype) <= max_otype) in
   (encodableCap(c) & validType) --> encodableCap(c')
 
@@ -167,10 +167,25 @@ function validBounds(c) : Capability -> bool =
     Bmsb == bitzero
   } else true
 
+/* setCapBounds produces valid bounds if base <= top <= 2^64 */
+
 $property
 function propSetBoundsValid(c, reqBase, reqTop) : (Capability, CapAddrBits, CapLenBits) -> bool =
   let (_, c') = setCapBounds(c, reqBase, reqTop) in
-  let sensibleReq = unsigned(reqTop) <= pow2(cap_addr_width) in
+  let sensibleReq = unsigned(reqBase) <= unsigned(reqTop) & unsigned(reqTop) <= pow2(cap_addr_width) in
+  sensibleReq --> validBounds(c')
+
+/* In instructions, setCapBounds is used in a way that guarantees base <= top,
+   and therefore it produces valid bounds if top <= 2^64; this should be
+   implied by the fact that top is checked against the original top, which
+   should be at most 2^64 for reachable capabilities */
+
+$property
+function propSetBoundsInstrValid(c, len) : (Capability, CapAddrBits) -> bool =
+  let newBase = c.address in
+  let newTop : CapLenBits = EXTZ(newBase) + EXTZ(len) in
+  let (_, c') = setCapBounds(c, newBase, newTop) in
+  let sensibleReq = unsigned(newTop) <= pow2(cap_addr_width) in
   sensibleReq --> validBounds(c')
 
 $property
@@ -216,8 +231,8 @@ function propSetBounds(c, reqBase, reqTop) : (Capability, CapAddrBits, CapLenBit
   let expMonotonic = unsigned(newCap.E) <= unsigned(c.E);
   // check that exact is true iff the returned bounds are exactly as requested
   let exactCorrect = ((reqBasei == newBase) & (reqTopi == newTop)) == exact;
-  (encodableCap(c) & validBounds(c) & requestSensible & requestMonotonic)
-  --> (requestSatisfied & boundsMonotonic & expMonotonic & exactCorrect)
+  (encodableCap(c) & requestSensible & requestMonotonic)
+  --> (requestSatisfied & boundsMonotonic & exactCorrect & (validBounds(c) --> expMonotonic))
 }
 
 /* set/incCapOffset do not change the bounds of capabilities, if the
