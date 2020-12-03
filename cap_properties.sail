@@ -262,6 +262,17 @@ function propSetLSBs(c, bits) : (Capability, bits(cap_mantissa_width - 3)) -> bo
   (newBase == origBase & newTop == origTop)
 }
 
+/* Setting bounds to a length smaller than 2^(MW-2) is always exact. */
+
+$property
+function propSetBoundsSmallExact(c, len) : (Capability, CapAddrBits) -> bool = {
+  let newBase = c.address;
+  let newTop : CapLenBits = EXTZ(newBase) + EXTZ(len);
+  let (exact, c') = setCapBounds(c, newBase, newTop);
+  let lenSmall = (unsigned(len) < pow2(cap_mantissa_width - 2));
+  lenSmall --> exact
+}
+
 /* If the requested base is aligned w.r.t. the mask given by CRAM, and the
  * requested length is rounded up via CRRL, then bounds setting is guaranteed
  * to be exact. */
