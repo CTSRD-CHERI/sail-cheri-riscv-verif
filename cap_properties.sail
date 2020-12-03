@@ -79,7 +79,6 @@ function operator <--> (p, q) = (p --> q) & (q --> p)
    representation:
 
      - the two MSBs of T, inferred from the base
-     - a sealed flag, derived from the object type
      - a separate exponent field (with the low bits of B and T set to zero
        if the exponent was taken from there)
 
@@ -90,20 +89,19 @@ function operator <--> (p, q) = (p --> q) & (q --> p)
  */
 
 function encodableCap(c) : Capability -> bool =
-  let Bbot = truncate(c.B, mantissa_width - 2) in
-  let Tbot = truncate(c.T, mantissa_width - 2) in
+  let Bbot = truncate(c.B, cap_mantissa_width - 2) in
+  let Tbot = truncate(c.T, cap_mantissa_width - 2) in
   let Btop2 = truncateLSB(c.B, 2) in
   let Ttop2 = truncateLSB(c.T, 2) in
-  let Ltop2 = if c.internal_e then 0b01 else 0b00 in
+  let Ltop2 = if c.internal_E then 0b01 else 0b00 in
   let carry_out = if Tbot <_u Bbot then 0b01 else 0b00 in
   let top_correct = (Ttop2 == Btop2 + Ltop2 + carry_out) in
-  let ie_correct = (c.internal_e | (unsigned(c.E) == 0)) in
-  let Bie = truncate(c.B, internal_exponent_take_bits) in
-  let Tie = truncate(c.T, internal_exponent_take_bits) in
-  let Zie = zeros(internal_exponent_take_bits) in
-  let bot_correct = (if c.internal_e then Bie == Zie & Tie == Zie else true) in
-  let sealed_correct = (c.sealed == (c.otype != to_bits(otype_width, otype_unsealed))) in
-  top_correct & bot_correct & ie_correct & sealed_correct
+  let ie_correct = (c.internal_E | (unsigned(c.E) == 0)) in
+  let Bie = truncate(c.B, internal_E_take_bits) in
+  let Tie = truncate(c.T, internal_E_take_bits) in
+  let Zie = zeros(internal_E_take_bits) in
+  let bot_correct = (if c.internal_E then Bie == Zie & Tie == Zie else true) in
+  top_correct & bot_correct & ie_correct
 
 /* A Capability is encodable iff the back-and-forth conversion to and
    from the in-memory represenation is the identity. */
@@ -132,9 +130,9 @@ function propSetBoundsEncodable(c, reqBase, reqTop) : (Capability, CapAddrBits, 
 
 /* Sealing with a valid object type preserves encodability */
 $property
-function propSealEncodable(c, otype) : (Capability, bits(otype_width)) -> bool =
+function propSealEncodable(c, otype) : (Capability, bits(cap_otype_width)) -> bool =
   let c' = sealCap(c, otype) in
-  let validType = (unsigned(otype) <= max_otype) in
+  let validType = (unsigned(otype) <= cap_max_otype) in
   (encodableCap(c) & validType) --> encodableCap(c')
 
 /* Unsealing preserves encodability */
@@ -142,8 +140,8 @@ $property
 function propUnsealEncodable(c) : Capability -> bool =
   encodableCap(c) --> encodableCap(unsealCap(c))
 
-/* Other capability manipulations do not change the bounds, the sealed flag,
-   or the object type, and therefore trivially preserve encodability. */
+/* Other capability manipulations do not change the bounds or the object type,
+   and therefore trivially preserve encodability. */
 
 /*****************************************************************************/
 
@@ -156,14 +154,14 @@ function propUnsealEncodable(c) : Capability -> bool =
    the initial capability in a monotonic way, base <= top should hold. */
 
 function validBounds(c) : Capability -> bool =
-  let Bmsb  = c.B[mantissa_width - 1] in
-  let Bmsb2 = c.B[mantissa_width - 1 .. mantissa_width - 2] in
-  let Tmsb  = c.T[mantissa_width - 1] in
-  if (unsigned(c.E) > maxE) then {
+  let Bmsb  = c.B[cap_mantissa_width - 1] in
+  let Bmsb2 = c.B[cap_mantissa_width - 1 .. cap_mantissa_width - 2] in
+  let Tmsb  = c.T[cap_mantissa_width - 1] in
+  if (unsigned(c.E) > cap_max_E) then {
     false
-  } else if (unsigned(c.E) == maxE) then {
+  } else if (unsigned(c.E) == cap_max_E) then {
     Tmsb == bitzero & Bmsb2 == 0b00
-  } else if (unsigned(c.E) == maxE - 1) then {
+  } else if (unsigned(c.E) == cap_max_E - 1) then {
     Bmsb == bitzero
   } else true
 
@@ -205,7 +203,7 @@ function propBuildCapValidEq(c, auth) : (Capability, Capability) -> bool =
   let c3 = setCapPerms(c2, getCapPerms(c)) in
   let result = setCapFlags(c3, getCapFlags(c)) in
   let expected_result = {unsealCap(c) with tag = true, reserved = auth.reserved} in
-  (encodableCap(c) & encodableCap(auth) & validBounds(c) & auth.tag & not(auth.sealed)) --> (result == expected_result)
+  (encodableCap(c) & encodableCap(auth) & validBounds(c) & auth.tag & not(isCapSealed(auth))) --> (result == expected_result)
 
 /*****************************************************************************/
 
@@ -256,8 +254,8 @@ function propIncOffset(c, offset) : (Capability, CapAddrBits) -> bool = {
 /* Modifying the low MW-3 bits of the address is always representable */
 
 $property
-function propSetLSBs(c, bits) : (Capability, bits(mantissa_width - 3)) -> bool = {
-  let addr' = [c.address with (mantissa_width - 4) .. 0 = bits];
+function propSetLSBs(c, bits) : (Capability, bits(cap_mantissa_width - 3)) -> bool = {
+  let addr' = [c.address with (cap_mantissa_width - 4) .. 0 = bits];
   let c' = {c with address = addr'};
   let (origBase, origTop) = getCapBounds(c);
   let (newBase, newTop) = getCapBounds(c');
@@ -290,7 +288,7 @@ function propSetOffset(base, top, offset) : (CapAddrBits, CapLenBits, CapAddrBit
   let (origBase, origTop) = getCapBounds(cap);
   let (newBase, newTop)   = getCapBounds(cap');
   let sensibleCap = ((0b0 @ base) <=_u top) & (unsigned(top) <= pow2(cap_addr_width));
-  let len = max(pow2(mantissa_width - 2), origTop - origBase);
+  let len = max(pow2(cap_mantissa_width - 2), origTop - origBase);
   let lowerRepOff = 0 - len;
   let upperRepOff = 6 * len;
   let signedOff = 4 * signed(offset);
