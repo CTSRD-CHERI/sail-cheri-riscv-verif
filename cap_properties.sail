@@ -290,6 +290,41 @@ function propRepresentableSetBoundsExact(c, len) : (Capability, CapAddrBits) -> 
   (addressAligned & lenPadded) --> boundsExact
 }
 
+/* getRepresentableLength is idempotent */
+
+$property
+function propRepresentableLengthIdempotent(len) : CapAddrBits -> bool =
+  let repLen = getRepresentableLength(len) in
+  getRepresentableLength(repLen) == repLen
+
+/* Setting the bounds of a capability to its current bounds does not change the
+ * capability, with one caveat: CSetBounds uses the address of the capability
+ * as the requested base, so we have to make sure that it points to the rounded
+ * base (hence the setCapOffset to 0 below).  We also assume that the original
+ * bounds have a canonical encoding to rule out negative lengths. */
+
+$property
+function propSetCurrentBoundsExact(c0) : Capability -> bool = {
+  // CSetOffset c1, c0, 0
+  let (representable, c1) = setCapOffset(c0, EXTZ(0b0));
+
+  // CGetLen newLen2, c1
+  let newLen2 : CapLenBits = {
+    // fixme: the integer modulo used in getCapLength is not implemented in the
+    // SMT backend, so calculate the length in bitvector rather than integer
+    // arithmetic
+    let (base1, top1) = getCapBoundsBits(c0);
+    top1 - EXTZ(base1)
+  };
+
+  // CSetBoundsExact c2, c1, newLen2
+  let newBase2 = c1.address;
+  let newTop2 : CapLenBits = EXTZ(newBase2) + newLen2;
+  let (exact, c2) = setCapBounds(c1, newBase2, newTop2);
+
+  (encodableCap(c0) & validBounds(c0)) --> (c1 == c2 & representable & exact)
+}
+
 /* TODO: Elaborate on the representable range, as in this earlier attempt: */
 /*
 $counterexample
