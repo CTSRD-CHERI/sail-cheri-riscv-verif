@@ -290,12 +290,39 @@ function propRepresentableSetBoundsExact(c, len) : (Capability, CapAddrBits) -> 
   (addressAligned & lenPadded) --> boundsExact
 }
 
+/* Setting bounds that have been aligned via CRAM / CRRL is monotonic if the
+ * original (unaligned) bounds request is monotonic, unless there is a length overflow
+ * (CRRL returns 0 if the representable length were rounded up to 2^64). */
+
+$property
+function propRepresentableBoundsMono(c, reqBase, reqLen) : (Capability, CapAddrBits, CapAddrBits) -> bool = {
+  let repMask = getRepresentableAlignmentMask(reqLen);
+  let repLen = getRepresentableLength(reqLen);
+  let repBase = reqBase & repMask;
+  let repTop : CapLenBits = EXTZ(repBase) + EXTZ(repLen);
+  let reqTop : CapLenBits = EXTZ(reqBase) + EXTZ(reqLen);
+  let (origBase, origTop) = getCapBounds(c);
+  let requestMonotonic = (origBase <= unsigned(reqBase) & unsigned(reqTop) <= origTop);
+  let boundsMonotonic = (origBase <= unsigned(repBase) & unsigned(repTop) <= origTop);
+  let noLenOverflow = (unsigned(repLen) == 0 --> unsigned(reqLen) == 0);
+  (requestMonotonic & noLenOverflow & encodableCap(c)) --> boundsMonotonic
+}
+
 /* getRepresentableLength is idempotent */
 
 $property
 function propRepresentableLengthIdempotent(len) : CapAddrBits -> bool =
   let repLen = getRepresentableLength(len) in
   getRepresentableLength(repLen) == repLen
+
+/* CRAM(CRRL(len)) == CRAM(len), unless len is so large that rounding it to the
+ * representable length wraps around to zero. */
+
+$property
+function propRepresentableMaskLengthAbsorb(len) : CapAddrBits -> bool =
+  let repLen = getRepresentableLength(len) in
+  let noLenOverflow = (unsigned(repLen) == 0 --> unsigned(len) == 0) in
+  noLenOverflow --> (getRepresentableAlignmentMask(repLen) == getRepresentableAlignmentMask(len))
 
 /* Setting the bounds of a capability to its current bounds does not change the
  * capability, with one caveat: CSetBounds uses the address of the capability
