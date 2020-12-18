@@ -290,6 +290,30 @@ function propRepresentableSetBoundsExact(c, len) : (Capability, CapAddrBits) -> 
   (addressAligned & lenPadded) --> boundsExact
 }
 
+/* Naturally aligned bounds with power of 2 length are always representable */
+
+$property
+function propPowerOfTwoRepresentable(c, n) : (Capability, int) -> bool = {
+  let len : CapLenBits = (EXTZ(0b1) << n);
+  let alignmentMask = ~(len - 1);
+  let base : CapAddrBits = c.address;
+  let top : CapLenBits = EXTZ(base) + len;
+  let baseAligned = (((0b0 @ base) & alignmentMask) == (0b0 @ base));
+  let (exact, c') = setCapBounds(c, base, top);
+  let (newBase, newTop) = getCapBoundsBits(c');
+  let boundsExact = exact & (c.address == newBase) & (top == newTop);
+  baseAligned --> boundsExact
+}
+
+/* Zero-length bounds are representable for any base */
+
+$property
+function propZeroLenRepresentable(c) : Capability -> bool = {
+  let (exact, c') = setCapBounds(c, c.address, EXTZ(c.address));
+  let (newBase, newTop) = getCapBoundsBits(c');
+  exact & (newBase == c.address) & (newTop == EXTZ(c.address))
+}
+
 /* Setting bounds that have been aligned via CRAM / CRRL is monotonic if the
  * original (unaligned) bounds request is monotonic, unless there is a length overflow
  * (CRRL returns 0 if the representable length were rounded up to 2^64). */
