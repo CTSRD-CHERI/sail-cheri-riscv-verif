@@ -218,7 +218,8 @@ function propSetBounds(c, reqBase, reqTop) : (Capability, CapAddrBits, CapLenBit
   let reqBasei = unsigned(reqBase);
   let reqTopi = unsigned(reqTop);
   // exclude invalid bounds requests
-  let requestSensible = reqBasei <= reqTopi & reqTopi <= pow2(cap_addr_width);
+  let baseBelowTop = reqBasei <= reqTopi;
+  let reachableTop = reqTopi <= pow2(cap_addr_width);
   // exclude non-monotonic bounds requests
   let requestMonotonic = origBase <= reqBasei & reqTopi <= origTop;
   // check that returned region includes requested
@@ -229,8 +230,8 @@ function propSetBounds(c, reqBase, reqTop) : (Capability, CapAddrBits, CapLenBit
   let expMonotonic = unsigned(newCap.E) <= unsigned(c.E);
   // check that exact is true iff the returned bounds are exactly as requested
   let exactCorrect = ((reqBasei == newBase) & (reqTopi == newTop)) == exact;
-  (encodableCap(c) & requestSensible & requestMonotonic)
-  --> (requestSatisfied & boundsMonotonic & exactCorrect & (validBounds(c) --> expMonotonic))
+  (baseBelowTop --> exactCorrect) &
+  (encodableCap(c) & baseBelowTop & reachableTop & requestMonotonic) --> (requestSatisfied & boundsMonotonic & (validBounds(c) --> expMonotonic))
 }
 
 /* set/incCapOffset do not change the bounds of capabilities, if the
@@ -266,11 +267,12 @@ function propSetLSBs(c, bits) : (Capability, bits(cap_mantissa_width - 3)) -> bo
 
 $property
 function propSetBoundsSmallExact(c, len) : (Capability, CapAddrBits) -> bool = {
-  let newBase = c.address;
-  let newTop : CapLenBits = EXTZ(newBase) + EXTZ(len);
-  let (exact, c') = setCapBounds(c, newBase, newTop);
+  let reqBase = c.address;
+  let reqTop : CapLenBits = EXTZ(reqBase) + EXTZ(len);
+  let (exact, c') = setCapBounds(c, reqBase, reqTop);
+  let (newBase, newTop) = getCapBoundsBits(c');
   let lenSmall = (unsigned(len) < pow2(cap_mantissa_width - 2));
-  lenSmall --> exact
+  lenSmall --> (exact & newBase == reqBase & newTop == reqTop)
 }
 
 /* If the requested base is aligned w.r.t. the mask given by CRAM, and the
