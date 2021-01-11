@@ -58,10 +58,10 @@ else ifeq ($(ARCH),64)
   override ARCH := RV64
 endif
 
-SAIL_CHERI_DIR=../sail-cheri-riscv
-SAIL_RISCV_DIR=$(SAIL_CHERI_DIR)/sail-riscv
+SAIL_CHERI_RISCV=../sail-cheri-riscv
+SAIL_RISCV_DIR=$(SAIL_CHERI_RISCV)/sail-riscv
 SAIL_RISCV_MODEL_DIR=$(SAIL_RISCV_DIR)/model
-SAIL_CHERI_MODEL_DIR=$(SAIL_CHERI_DIR)/src
+SAIL_CHERI_MODEL_DIR=$(SAIL_CHERI_RISCV)/src
 
 SAIL_RV32_XLEN := $(SAIL_RISCV_MODEL_DIR)/riscv_xlen32.sail
 SAIL_RV32_FLEN := $(SAIL_RISCV_MODEL_DIR)/riscv_flen_F.sail
