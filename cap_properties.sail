@@ -396,3 +396,42 @@ function propSetOffset(base, top, offset) : (CapAddrBits, CapLenBits, CapAddrBit
   not(sensibleCap) | (representableCorrect & (inRepBounds == representable))
 }
 */
+
+/* Check that "CHERI Concentrate Alignment Requirements" as documented in the
+ * ISA spec are both necessary and sufficient:
+ *
+ * - For allocations with $I_E = 0$ (i.e. lengths less than $4$ kiB for
+ *   $MW = 14$) there is no specific alignment requirement.
+ *
+ * - For larger allocations the base and top must be aligned to $2^{E+3+C}$
+ *   byte boundaries (i.e., the $E + 3 + C$ least significant bits are zero)
+ *   where $E$ is determined from the length, $l$, by
+ *   $E = 52 - *   \text{CountLeadingZeros}(l[64:13])$, and $C$ is an
+ *   additional carry bit from rounding up the truncated (to $E + 3 + MW - 4$
+ *   bits) length to a multiple of $2^{E+3}$ (that is, $C = 1$ if and only if
+ *   any of the $E + 3$ least significant bits of $l$ are non-zero and the next
+ *   $MW - 4$ least significant bits of $l$ are all $1$).
+ */
+$property
+function propSpecifiedRequiredAlignment(length) : CapAddrBits -> bool = {
+  let one : CapAddrBits = to_bits(cap_addr_width, 1);
+  let E : CapAddrBits =
+    if (length >> (cap_mantissa_width - 1)) != zeros() then
+      to_bits(cap_addr_width, unsigned(cap_reset_E)) - (count_leading_zeros(length) + 1)
+    else
+      zeros();
+  let IE : bool =
+    (E == zeros()) & ((length & (one << (cap_mantissa_width - 2))) == zeros());
+  let ret : CapAddrBits =
+    if IE then
+      one
+    else
+      let maskLo = (one << unsigned(E + 3)) - 1 in
+      let maskHi = ((one << (cap_mantissa_width - 4)) - 1) << unsigned(E + 3) in
+      if ((length & maskLo) != zeros()) & ((length & maskHi) == maskHi) then
+        one << unsigned(E + 4)
+      else
+        one << unsigned(E + 3);
+  let cram = getRepresentableAlignmentMask(length);
+  ret == ~(cram) + 1;
+}
