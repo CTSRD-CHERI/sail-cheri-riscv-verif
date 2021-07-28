@@ -1,9 +1,9 @@
 # CHERI-RISC-V formal verification artifacts
 
-This repository currently contains a file with properties of the compressed
-capability helper functions of [sail-cheri-riscv], checked using the SMT
-backend of [Sail].  Work on proving whole-ISA properties corresponding to
-those proved for CHERI-MIPS [1] is under way.
+This repository currently contains a file `cap_properties.sail` with properties
+of the compressed capability helper functions of [sail-cheri-riscv], checked
+using the SMT backend of [Sail].  Work on proving whole-ISA properties
+corresponding to those proved for CHERI-MIPS [1] is under way.
 
 The Makefile assumes that [sail-cheri-riscv] is checked out next to this
 repository (or at `$SAIL_CHERI_RISCV`) and that Sail has been installed via
@@ -12,6 +12,9 @@ SMT-LIB file per property that can be handed to an SMT solver (asking whether
 the negation of the property is satisfiable, i.e., whether there are any
 counterexamples), while the `isail` target loads the properties into the Sail
 interpreter and starts an interactive session.
+
+The properties have last been checked against commit `929cf11` of
+[sail-cheri-riscv] using commit `63343363` of [Sail].
 
 [1] Rigorous engineering for hardware security: Formal modelling and proof in
 the CHERI design and implementation process. Kyndylan Nienhuis, Alexandre
