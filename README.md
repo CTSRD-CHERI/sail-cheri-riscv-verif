@@ -13,6 +13,9 @@ the negation of the property is satisfiable, i.e., whether there are any
 counterexamples), while the `isail` target loads the properties into the Sail
 interpreter and starts an interactive session.
 
+The `check_properties` Makefile target can be used to check the properties
+using the [Isla] tool, instead of Sail's SMT backend.
+
 The properties have last been checked against commit `929cf11` of
 [sail-cheri-riscv] using commit `63343363` of [Sail].
 
@@ -26,3 +29,4 @@ N. M. Watson, and Peter Sewell. In Security and Privacy 2020.
 
 [sail-cheri-riscv]: https://github.com/CTSRD-CHERI/sail-cheri-riscv
 [Sail]: https://github.com/rems-project/sail
+[Isla]: https://github.com/rems-project/isla

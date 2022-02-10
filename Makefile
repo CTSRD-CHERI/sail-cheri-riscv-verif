@@ -58,6 +58,20 @@ else ifeq ($(ARCH),64)
   override ARCH := RV64
 endif
 
+# Attempt to work with either sail from opam or built from repo in SAIL_DIR
+ifneq ($(SAIL_DIR),)
+# Use sail repo in SAIL_DIR
+SAIL:=$(SAIL_DIR)/sail
+export SAIL_DIR
+else
+# Use sail from opam package
+SAIL_DIR=$(shell opam config var sail:share)
+SAIL:=sail
+endif
+
+ISLA_SAIL = isla-sail
+ISLA_PROPERTY = isla-property129
+
 SAIL_CHERI_RISCV=../sail-cheri-riscv
 SAIL_RISCV_DIR=$(SAIL_CHERI_RISCV)/sail-riscv
 SAIL_RISCV_MODEL_DIR=$(SAIL_RISCV_DIR)/model
@@ -77,6 +91,7 @@ CHERI_CAP_IMPL = $(CHERI_CAP_$(ARCH)_IMPL)
 
 
 PRELUDE = $(SAIL_RISCV_MODEL_DIR)/prelude.sail \
+	  $(SAIL_DIR)/lib/mono_rewrites.sail \
           $(SAIL_RISCV_MODEL_DIR)/prelude_mapping.sail \
           $(SAIL_XLEN) \
           $(SAIL_FLEN) \
@@ -89,16 +104,13 @@ PRELUDE = $(SAIL_RISCV_MODEL_DIR)/prelude.sail \
 
 PRELUDE_SRCS   = $(PRELUDE)
 
-# Attempt to work with either sail from opam or built from repo in SAIL_DIR
-ifneq ($(SAIL_DIR),)
-# Use sail repo in SAIL_DIR
-SAIL:=$(SAIL_DIR)/sail
-export SAIL_DIR
-else
-# Use sail from opam package
-SAIL_DIR=$(shell opam config var sail:share)
-SAIL:=sail
-endif
+ARCH_BASE_SRCS = $(PRELUDE) \
+                 $(SAIL_RISCV_MODEL_DIR)/riscv_types_common.sail \
+                 $(SAIL_CHERI_MODEL_DIR)/cheri_riscv_types.sail \
+                 $(SAIL_RISCV_MODEL_DIR)/riscv_types.sail \
+		 $(SAIL_CHERI_MODEL_DIR)/cheri_reg_type.sail \
+                 $(SAIL_RISCV_MODEL_DIR)/riscv_freg_type.sail \
+                 $(SAIL_RISCV_MODEL_DIR)/riscv_regs.sail
 
 isail:
 	$(SAIL) $(SAIL_FLAGS) -i $(PRELUDE_SRCS) cap_properties.sail
@@ -110,3 +122,37 @@ smt:
 
 smt_auto:
 	$(SAIL) $(SAIL_FLAGS) -smt_auto $(PRELUDE_SRCS) cap_properties.sail
+
+cap_properties.ir: $(ARCH_BASE_SRCS) cap_properties.sail
+	$(ISLA_SAIL) $^ -mono_rewrites -o $(basename $@)
+
+PROPERTIES = \
+	propEncodableCorrect \
+	propDecodeEncodable \
+	propDefaultCapEncodable \
+	propNullCapEncodable \
+	propSetBoundsEncodable \
+	propSealEncodable \
+	propUnsealEncodable \
+	propSetBoundsValid \
+	propSetBoundsInstrValid \
+	propBaseLeqTop \
+	propBuildCapValidEq \
+	propSetBounds \
+	propSetOffset \
+	propIncOffset \
+	propSetLSBs \
+	propSetBoundsSmallExact \
+	propRepresentableSetBoundsExact \
+	propPowerOfTwoRepresentable \
+	propZeroLenRepresentable \
+	propRepresentableBoundsMono \
+	propRepresentableLengthIdempotent \
+	propRepresentableMaskLengthAbsorb \
+	propSetCurrentBoundsExact \
+	propSpecifiedRequiredAlignment
+
+$(PROPERTIES): cap_properties.ir
+	$(ISLA_PROPERTY) $(ISLA_FLAGS) -A cap_properties.ir -C isla_config.toml -L bit_to_bool -p $@
+
+check_properties: $(PROPERTIES)
