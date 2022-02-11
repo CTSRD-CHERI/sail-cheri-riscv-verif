@@ -152,7 +152,9 @@ PROPERTIES = \
 	propSetCurrentBoundsExact \
 	propSpecifiedRequiredAlignment
 
+ISLA_LINEARIZE_FLAGS = -L bit_to_bool -L bool_to_bits -L getCapBoundsBits -L fastRepCheck --test-linearize
+
 $(PROPERTIES): cap_properties.ir
-	$(ISLA_PROPERTY) $(ISLA_FLAGS) -A cap_properties.ir -C isla_config.toml -L bit_to_bool -p $@
+	$(ISLA_PROPERTY) -p $@ $(ISLA_FLAGS) -A cap_properties.ir -C isla_config.toml $(ISLA_LINEARIZE_FLAGS)
 
 check_properties: $(PROPERTIES)
